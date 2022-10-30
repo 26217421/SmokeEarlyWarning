@@ -27,15 +27,15 @@ object Smoke extends SmokeStruct {
       .option("header", "true")
       .schema(schema)
       .load("./input/smoke1.csv")
-    //run_v1(dataFrame)
     run_v1(dataFrame)
+    run_v2(dataFrame)
     spark.stop()
   }
   def run_v2(ds: Dataset[Row]):Unit = {
     var dataFrame = ds.toDF()
     dataFrame = dataFrame.withColumnRenamed("Fire Alarm", "label")
       .withColumn("label", $"label".cast(DataTypes.DoubleType))
-    dataFrame.drop("index", "UTC")
+    dataFrame.drop("index", "UTC", "Raw Ethanol", "Humidity[%]", "CNT")
     var Array(trainData, testData) = dataFrame.randomSplit(Array(0.8, 0.2))
     trainData.cache()
     testData.cache()
@@ -57,12 +57,12 @@ object Smoke extends SmokeStruct {
     var dataFrame = ds.toDF()
     //dataFrame.show()
     dataFrame.groupBy("Fire Alarm").count().show()
-    dataFrame.drop("index", "UTC", "Raw Ethanol", "Humidity[%]")
+    dataFrame.drop("index", "UTC", "Raw Ethanol", "Humidity[%]", "CNT")
 
     dataFrame = dataFrame.withColumnRenamed("Fire Alarm", "label")
       .withColumn("label", $"label".cast(DataTypes.DoubleType))
 
-    val Array(trainData, testData) = dataFrame.randomSplit(Array(0.9, 0.1))
+    val Array(trainData, testData) = dataFrame.randomSplit(Array(0.8, 0.2))
     trainData.cache()
     testData.cache()
     testData.groupBy("label").count().show()
@@ -99,7 +99,6 @@ object Smoke extends SmokeStruct {
       .setInputCol("featureVector")
       .setOutputCol("features")
     val rf = new RandomForestClassifier()
-      .setNumTrees(100)
       .setMaxDepth(10)
       .setLabelCol("label")
       .setFeaturesCol("features")
@@ -108,10 +107,12 @@ object Smoke extends SmokeStruct {
     (rf, pipeline)
   }
 
-  protected def selectBestModel(trainData: Dataset[Row], estimator: Estimator[_], evaluator: MulticlassClassificationEvaluator, rf: RandomForestClassifier, sample: Boolean): RandomForestClassificationModel = {
+  protected def selectBestModel(trainData: Dataset[Row], estimator: Estimator[_], evaluator:
+  MulticlassClassificationEvaluator, rf: RandomForestClassifier, sample: Boolean):
+  RandomForestClassificationModel = {
     val paramGrid = new ParamGridBuilder()
-      .addGrid(rf.maxDepth, Array(10))
-      //.addGrid(rf.numTrees, Range(100, 150, 10))
+      //.addGrid(rf.maxDepth, Array(10))
+      .addGrid(rf.numTrees, Range(100, 150, 10))
       .addGrid(rf.impurity, Array("entropy"))
       .build()
     val cv = new CrossValidator() //使用交叉验证训练模型
@@ -179,7 +180,7 @@ object Smoke extends SmokeStruct {
       .setInputCols(input)
       .setOutputCol("featureVector")
 
-    val scaler = new MinMaxScaler()
+    val scaler = new StandardScaler()
       .setInputCol("featureVector")
       .setOutputCol("features")
 
@@ -196,6 +197,7 @@ object Smoke extends SmokeStruct {
     // oversampled DataFrame
 
     val newDF = asmote.transform(processData(df).select("features", "label"))
+    //processData(df)
     newDF
   }
 }
