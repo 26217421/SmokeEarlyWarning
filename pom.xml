@@ -63,8 +63,16 @@
             <artifactId>spark-mllib_2.12</artifactId>
             <version>3.0.0</version>
         </dependency>
-
-
+        <dependency>
+            <groupId>org.scalafx</groupId>
+            <artifactId>scalafx_2.12</artifactId>
+            <version>8.0.102-R11</version>
+        </dependency>
+        <dependency>
+            <groupId>org.scalanlp</groupId>
+            <artifactId>breeze-viz_2.12</artifactId>
+            <version>0.13</version>
+        </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-streaming-kafka-0-10_2.12</artifactId>

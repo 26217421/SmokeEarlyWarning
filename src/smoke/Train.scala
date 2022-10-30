@@ -12,40 +12,45 @@ package smoke {
   class Train(var estimator: Estimator[_], var evaluator: Evaluator) {
     var n_tree: IntParam = estimator.asInstanceOf[RandomForestClassifier].numTrees
     var impurity: Param[String] = estimator.asInstanceOf[RandomForestClassifier].impurity
-
+    val df: DataFrame = Smoke.getDF
 
     def train(df: DataFrame, k: Int, paramMap: ParamMap): Double = {
       val split = kFold(k)
       val foldDf: Array[Dataset[Row]] = df.randomSplit(split)
       var metric: Double = 0
       for ((k, i) <- foldDf.zipWithIndex) {
-        println(i)
-        foldDf(i).groupBy("label").count().show()
         var train_df = foldDf.filter(x => x != k).reduce(_ union _)
-        train_df = smote(train_df)
+        //train_df = smote(train_df)
+        train_df = processData(train_df)
         val val_df = processData(k)
         val model: Model[_] = estimator.fit(train_df, paramMap).asInstanceOf[Model[_]]
         metric = evaluator.evaluate(model.transform(val_df, paramMap))
       }
+
       metric
     }
-    def modelFitness(x: DenseVector[Double], df:DataFrame): Double = {
+    def modelFitness(x: DenseVector[Double]): Double = {
+
       val paramMap = new ParamMap
-       val str:String = if (x(1).toInt != 0) {
+      println(x.map(Math.ceil).toArray.mkString(" "))
+       val str:String = if (math.ceil(x(1)).toInt != 0) {
         "entropy"
       } else {
         "gini"
       }
-      paramMap put(n_tree, x(0).toInt)
+      paramMap put(n_tree, math.ceil(x(0)).toInt)
       paramMap put(impurity, str)
-      train(df, 5, paramMap)
+      val v: Double = -train(df, 5, paramMap)
+      println("accuracy = {}", v)
+
+      v
     }
   }
 
   object Train {
     def main(args: Array[String]): Unit = {
       println(kFold(10).sum)
-
+      print(math.ceil(0.51).toInt)
     }
 
     def kFold(k: Int): Array[Double] = {
@@ -54,7 +59,6 @@ package smoke {
         (fold / numFoldsF)
       }.toArray
       val tmpB: Array[Double] = tmpA.sliding(2, 1).map(_.reduceLeft((a, b) => b - a)).toArray
-      println(tmpB.mkString)
       Array.concat(tmpA.take(1), tmpB)
     }
 

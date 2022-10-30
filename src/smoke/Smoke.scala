@@ -22,20 +22,26 @@ object Smoke extends SmokeStruct {
 
   //noinspection DuplicatedCode
   def main(args: Array[String]): Unit = {
-    val dataFrame = spark.read
+    val dataFrame: DataFrame = getDF
+    run_v1(dataFrame)
+    run_v2()
+    spark.stop()
+  }
+
+  def getDF: DataFrame = {
+    var dataFrame = spark.read
       .format("csv")
       .option("header", "true")
       .schema(schema)
       .load("./input/smoke1.csv")
-    run_v1(dataFrame)
-    run_v2(dataFrame)
-    spark.stop()
-  }
-  def run_v2(ds: Dataset[Row]):Unit = {
-    var dataFrame = ds.toDF()
     dataFrame = dataFrame.withColumnRenamed("Fire Alarm", "label")
       .withColumn("label", $"label".cast(DataTypes.DoubleType))
     dataFrame.drop("index", "UTC", "Raw Ethanol", "Humidity[%]", "CNT")
+    dataFrame
+  }
+
+  def run_v2():Unit = {
+    var dataFrame = getDF
     var Array(trainData, testData) = dataFrame.randomSplit(Array(0.8, 0.2))
     trainData.cache()
     testData.cache()
@@ -81,7 +87,7 @@ object Smoke extends SmokeStruct {
     evaluate(testData, bestModel)
   }
 
-  private def getSampleEstimator: RandomForestClassifier = {
+  def getSampleEstimator: RandomForestClassifier = {
 
     val rf = new RandomForestClassifier()
       .setMaxDepth(10)
