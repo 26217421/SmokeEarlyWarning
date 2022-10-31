@@ -27,7 +27,7 @@ abstract class DragonflyAlgorithm(nAgents: Int) {
     // Initialize the dragonflies population Xi (i = 1, 2, ..., n)
     // Initialize step vectors ΔXi (i = 1, 2, ..., n)
     val init: List[Point] = randomAgents().take(nAgents).toList
-    val minimum: Point = init.minBy(_.value)
+    val minimum: Point = init.maxBy(_.value)
     val maximum: V = init.maxBy(_.value).x
     val start = Result(1, minimum, minimum.value, minimum.x, maximum, radius(0, max), init)
 
@@ -62,10 +62,11 @@ abstract class DragonflyAlgorithm(nAgents: Int) {
             val nP = Tools.updateLevy(agent.x) // Eq. 3.8
             (nP, nV)
           }
+          println("更新位置", newP, newV)
 
           // Check and correct the new positions based on the boundaries of variables
           val (newPb, newVb) = border(newP, newV)
-          println("更新位置", newPb, newVb)
+          println("边界处理", newPb, newVb)
           agent.next(newPb, newVb)
         }
         val newMinimum = newAgents.maxBy(_.value)

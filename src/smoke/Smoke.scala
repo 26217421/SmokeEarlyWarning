@@ -23,8 +23,8 @@ object Smoke extends SmokeStruct {
   //noinspection DuplicatedCode
   def main(args: Array[String]): Unit = {
     val dataFrame: DataFrame = getDF
-    run_v1(dataFrame)
-    run_v2()
+    run_v1()
+    //run_v2()
     spark.stop()
   }
 
@@ -59,14 +59,10 @@ object Smoke extends SmokeStruct {
   }
 
 
-  def run_v1(ds: Dataset[Row]): Unit = {
-    var dataFrame = ds.toDF()
+  def run_v1(): Unit = {
+    val dataFrame = getDF
     //dataFrame.show()
-    dataFrame.groupBy("Fire Alarm").count().show()
-    dataFrame.drop("index", "UTC", "Raw Ethanol", "Humidity[%]", "CNT")
 
-    dataFrame = dataFrame.withColumnRenamed("Fire Alarm", "label")
-      .withColumn("label", $"label".cast(DataTypes.DoubleType))
 
     val Array(trainData, testData) = dataFrame.randomSplit(Array(0.8, 0.2))
     trainData.cache()
@@ -105,7 +101,8 @@ object Smoke extends SmokeStruct {
       .setInputCol("featureVector")
       .setOutputCol("features")
     val rf = new RandomForestClassifier()
-      .setMaxDepth(10)
+      .setNumTrees(134)
+      .setImpurity("entropy")
       .setLabelCol("label")
       .setFeaturesCol("features")
 
