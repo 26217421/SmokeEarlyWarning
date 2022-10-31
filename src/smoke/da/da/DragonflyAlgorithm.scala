@@ -35,11 +35,11 @@ abstract class DragonflyAlgorithm(nAgents: Int) {
       case result@ Result(i, global, _, food, enemy, _, agents, _, _) =>
 
         // Update the food source and enemy
-        var newFood = agents.minBy(_.value).x
-        var newEnemy = agents.maxBy(_.value).x
-        if(func(newFood) > func(food)  )
+        var newFood = agents.maxBy(_.value).x
+        var newEnemy = agents.minBy(_.value).x
+        if(func(newFood) < func(food)  )
           newFood = food
-        if(func(newEnemy) < func(enemy))
+        if(func(newEnemy) > func(enemy))
           newEnemy = enemy
         // Update w, s, a, c, f, and e
         val p = params(i, max)
@@ -68,8 +68,8 @@ abstract class DragonflyAlgorithm(nAgents: Int) {
           println("更新位置", newPb, newVb)
           agent.next(newPb, newVb)
         }
-        val newMinimum = newAgents.minBy(_.value)
-        val newGlobal = if(global.value > newMinimum.value) newMinimum else global
+        val newMinimum = newAgents.maxBy(_.value)
+        val newGlobal = if(global.value < newMinimum.value) newMinimum else global
         val actorVector = DenseVector(newAgents.map(_.value).toArray)
         val newMean = breeze.stats.mean(actorVector)
         val newStd = breeze.stats.stddev(actorVector)
