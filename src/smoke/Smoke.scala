@@ -8,10 +8,9 @@ import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.ml.{Estimator, Pipeline, PipelineModel}
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
-
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.DataTypes
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, Row, SaveMode, SparkSession}
 
 object Smoke extends SmokeStruct {
   val spark: SparkSession = SparkSession.builder()
@@ -22,29 +21,55 @@ object Smoke extends SmokeStruct {
 
   //noinspection DuplicatedCode
   def main(args: Array[String]): Unit = {
-    val dataFrame: DataFrame = getDF
-    run_v1()
-    //run_v2()
-    spark.stop()
-  }
-
-  def getDF: DataFrame = {
     var dataFrame = spark.read
       .format("csv")
       .option("header", "true")
       .schema(schema)
       .load("./input/smoke1.csv")
-    dataFrame = dataFrame.withColumnRenamed("Fire Alarm", "label")
+    val Array(trainData, testData) = dataFrame.randomSplit(Array(0.8, 0.2))
+    trainData.coalesce(1)
+      .write
+      .mode(SaveMode.Overwrite)
+      .option("header", "true")
+      .csv("./input/train.csv")
+    testData.coalesce(1)
+      .write
+      .mode(SaveMode.Overwrite)
+      .option("header", "true")
+      .csv("./input/test.csv")
+    //run_v1()
+    //run_v2()
+    spark.stop()
+  }
+
+  def getDF: Array[Dataset[Row]] = {
+    var trainData = spark.read
+      .format("csv")
+      .option("header", "true")
+      .schema(schema)
+      .load("./input/train.csv")
+    var testData = spark.read
+      .format("csv")
+      .option("header", "true")
+      .schema(schema)
+      .load("./input/test.csv")
+    trainData = processFeature(trainData)
+    testData = processFeature(testData)
+    trainData.cache()
+    testData.cache()
+    Array(trainData, testData)
+  }
+
+  def processFeature(df: DataFrame): DataFrame = {
+    var dataFrame = df.withColumnRenamed("Fire Alarm", "label")
       .withColumn("label", $"label".cast(DataTypes.DoubleType))
-    dataFrame.drop("index", "UTC", "Raw Ethanol", "Humidity[%]", "CNT")
+    dataFrame = dataFrame.drop("index", "UTC", "Raw Ethanol", "Humidity[%]", "CNT")
     dataFrame
   }
 
   def run_v2():Unit = {
-    var dataFrame = getDF
-    var Array(trainData, testData) = dataFrame.randomSplit(Array(0.8, 0.2))
-    trainData.cache()
-    testData.cache()
+    var Array(trainData, testData) = getDF
+
     trainData = smote(trainData)
     trainData.groupBy("label").count().show()
     val rf: RandomForestClassifier = getSampleEstimator
@@ -60,11 +85,7 @@ object Smoke extends SmokeStruct {
 
 
   def run_v1(): Unit = {
-    val dataFrame = getDF
-    //dataFrame.show()
-
-
-    val Array(trainData, testData) = dataFrame.randomSplit(Array(0.8, 0.2))
+    val Array(trainData, testData) = getDF
     trainData.cache()
     testData.cache()
     testData.groupBy("label").count().show()

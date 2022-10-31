@@ -16,18 +16,11 @@ object DAOmp {
   var train = new Train(Smoke.getSampleEstimator, evaluator)
   def main(args: Array[String]): Unit = {
     val result = omp()
-    val jsonMapper = new ObjectMapper()
-    jsonMapper.registerModule(DefaultScalaModule)
-    val v: String = jsonMapper.writeValueAsString(result)
-    val writer = new PrintWriter(new File("res.json"))
-    writer.write(v)
-    writer.close()
 
-    println(v)
   }
   def omp(): DA#Result = {
-    val nAgents = 20
-    val iterations = 50
+    val nAgents = 10
+    val iterations = 10
     def parameters(iteration: Int, maxIteration: Int) =
       VariableParam(iteration, maxIteration)
 
@@ -35,8 +28,16 @@ object DAOmp {
     val lb: DenseVector[Double] = DenseVector[Double](10, 0)
     val ub: DenseVector[Double] = DenseVector[Double](150, 1)
     val fit = train.modelFitness _
-    val result = (new DA(fit, nAgents, lb, ub, parameters).iterator(iterations)
-      take iterations).toList.last
+    val results = (new DA(fit, nAgents, lb, ub, parameters).iterator(iterations)
+      take iterations).toList
+    val jsonMapper = new ObjectMapper()
+    jsonMapper.registerModule(DefaultScalaModule)
+    val res: String = jsonMapper.writeValueAsString(results)
+
+    val writer = new PrintWriter(new File("res.json"))
+    writer.write(res)
+    writer.close()
+    val result = results.last
 
     result
   }
