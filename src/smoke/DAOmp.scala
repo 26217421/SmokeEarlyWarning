@@ -13,20 +13,20 @@ object DAOmp {
     .setLabelCol("label")
     .setPredictionCol("prediction")
     .setMetricName("fMeasureByLabel")
-  var train = new Train(Smoke.getSampleEstimator, evaluator)
+  var train = new Train(Smoke.getSampleEstimator(20), evaluator)
   def main(args: Array[String]): Unit = {
     val result = omp()
 
   }
   def omp(): DA#Result = {
     val nAgents = 10
-    val iterations = 10
+    val iterations = 5
     def parameters(iteration: Int, maxIteration: Int) =
       VariableParam(iteration, maxIteration)
 
 
     val lb: DenseVector[Double] = DenseVector[Double](10, 0)
-    val ub: DenseVector[Double] = DenseVector[Double](150, 1)
+    val ub: DenseVector[Double] = DenseVector[Double](150, 0)
     val fit = train.modelFitness _
     val results = (new DA(fit, nAgents, lb, ub, parameters).iterator(iterations)
       take iterations).toList
@@ -34,7 +34,7 @@ object DAOmp {
     jsonMapper.registerModule(DefaultScalaModule)
     val res: String = jsonMapper.writeValueAsString(results)
 
-    val writer = new PrintWriter(new File("res.json"))
+    val writer = new PrintWriter(new File("f_res.json"))
     writer.write(res)
     writer.close()
     val result = results.last

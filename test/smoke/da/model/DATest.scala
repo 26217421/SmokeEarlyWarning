@@ -20,8 +20,8 @@ class DATest {
     pos(where(underIndex)) := ub(underIndex)
     pos.foreach(println)
     //val f: DenseVector[Double] = floor(pos / diff +:+ 0.5)
-    velocity(where(overIndex)) := diff(where(overIndex)) :*= rand()
-    velocity(where(underIndex)) := diff(where(underIndex)) :*= rand()
+    velocity(where(overIndex)) :=  rand()
+    velocity(where(underIndex)) := rand()
 
     velocity.foreach(println)
 

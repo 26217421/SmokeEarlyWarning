@@ -15,9 +15,9 @@ case class VariableParam(i: Int, max: Int) extends Parameters {
     case cc if cc < 0 => 0
     case cc => cc
   }
-  val s: Double=0.1*my_c//2*rand()*my_c // Seperation weight
-  val a: Double=0.1*my_c//2*rand()*my_c // Alignment weight
-  val c: Double=0.7*my_c//2*rand()*my_c // Cohesion weight
+  val s: Double=2*rand()*my_c//2*rand()*my_c // Seperation weight
+  val a: Double=2*rand()*my_c//2*rand()*my_c // Alignment weight
+  val c: Double=2*rand()*my_c//2*rand()*my_c // Cohesion weight
   val f: Double=3.5*rand()      // Food attraction weight
   val e: Double=my_c          // Enemy distraction weight
 

@@ -1,16 +1,17 @@
 package smoke
 
-import org.apache.spark.ml.classification.{GBTClassifier, RandomForestClassificationModel, RandomForestClassifier}
+import org.apache.spark.ml.classification.{RandomForestClassificationModel, RandomForestClassifier}
 import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
-import org.apache.spark.ml.feature.{MinMaxScaler, StandardScaler, VectorAssembler}
+import org.apache.spark.ml.feature.{StandardScaler, VectorAssembler}
 import org.apache.spark.ml.instance.ASMOTE
 import org.apache.spark.ml.linalg.DenseVector
-import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder, TrainValidationSplit}
+import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.ml.{Estimator, Pipeline, PipelineModel}
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.DataTypes
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SaveMode, SparkSession}
+import org.apache.spark.sql._
+import smoke.DAOmp.evaluator
 
 object Smoke extends SmokeStruct {
   val spark: SparkSession = SparkSession.builder()
@@ -21,7 +22,15 @@ object Smoke extends SmokeStruct {
 
   //noinspection DuplicatedCode
   def main(args: Array[String]): Unit = {
-    var dataFrame = spark.read
+    run_v3(112, isSample = false)
+    run_v3(20, isSample = true)
+    run_v3(112, isSample = true)
+
+    spark.stop()
+  }
+
+  private def splitDataSet(): Unit = {
+    val dataFrame = spark.read
       .format("csv")
       .option("header", "true")
       .schema(schema)
@@ -37,9 +46,6 @@ object Smoke extends SmokeStruct {
       .mode(SaveMode.Overwrite)
       .option("header", "true")
       .csv("./input/test.csv")
-    //run_v1()
-    //run_v2()
-    spark.stop()
   }
 
   def getDF: Array[Dataset[Row]] = {
@@ -63,7 +69,8 @@ object Smoke extends SmokeStruct {
   def processFeature(df: DataFrame): DataFrame = {
     var dataFrame = df.withColumnRenamed("Fire Alarm", "label")
       .withColumn("label", $"label".cast(DataTypes.DoubleType))
-    dataFrame = dataFrame.drop("index", "UTC", "Raw Ethanol", "Humidity[%]", "CNT")
+    //dataFrame = dataFrame.drop("index", "UTC", "Raw Ethanol", "Humidity[%]", "CNT")
+    dataFrame = dataFrame.drop("index", "CNT", "UTC")
     dataFrame
   }
 
@@ -83,11 +90,19 @@ object Smoke extends SmokeStruct {
     evaluate(testData, bestModel)
   }
 
+  def run_v3(n:Int, isSample:Boolean): Unit = {
+    val Array(_, testData) = getDF
+    val train = new Train(getSampleEstimator, evaluator)
+    train.paramMap put(train.n_tree, n)
+    train.paramMap put(train.impurity, "gini")
+    println(n, isSample)
+    val model = train.train(train.foldDf, train.paramMap, isSample)._2.asInstanceOf[RandomForestClassificationModel]
+    evaluate(testData, model)
+  }
 
   def run_v1(): Unit = {
     val Array(trainData, testData) = getDF
-    trainData.cache()
-    testData.cache()
+
     testData.groupBy("label").count().show()
     val inputCols = trainData.columns.filter(_ != "label")
     val (rf: RandomForestClassifier, pipeline: Pipeline) = getNoSamplePipline(inputCols)
@@ -107,10 +122,9 @@ object Smoke extends SmokeStruct {
   def getSampleEstimator: RandomForestClassifier = {
 
     val rf = new RandomForestClassifier()
-      .setMaxDepth(10)
+      .setNumTrees(112)
       .setLabelCol("label")
       .setFeaturesCol("features")
-
     rf
   }
 
@@ -122,8 +136,7 @@ object Smoke extends SmokeStruct {
       .setInputCol("featureVector")
       .setOutputCol("features")
     val rf = new RandomForestClassifier()
-      .setNumTrees(134)
-      .setImpurity("entropy")
+      .setNumTrees(20)
       .setLabelCol("label")
       .setFeaturesCol("features")
 
@@ -136,8 +149,8 @@ object Smoke extends SmokeStruct {
   RandomForestClassificationModel = {
     val paramGrid = new ParamGridBuilder()
       //.addGrid(rf.maxDepth, Array(10))
-      .addGrid(rf.numTrees, Range(100, 150, 10))
-      .addGrid(rf.impurity, Array("entropy"))
+      .addGrid(rf.numTrees, Array(140))
+      .addGrid(rf.impurity, Array("gini"))
       .build()
     val cv = new CrossValidator() //使用交叉验证训练模型
       .setEstimator(estimator)
@@ -211,12 +224,10 @@ object Smoke extends SmokeStruct {
     scaler.fit(assembler.transform(df_data)).transform(assembler.transform(df_data))
   }
   def smote(df_data: DataFrame): DataFrame = {
-    import spark.implicits._
 
-    val df = df_data.withColumnRenamed("Fire Alarm", "label")
-      .withColumn("label", $"label".cast(DataTypes.DoubleType))
+    val df = df_data
     val asmote = new ASMOTE().setK(5)
-      .setPercOver(145)
+      .setPercOver(140)
       .setSeed(46)
     // oversampled DataFrame
 

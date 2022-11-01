@@ -6,7 +6,7 @@ package smoke {
   import org.apache.spark.ml.param.{IntParam, Param, ParamMap}
   import org.apache.spark.ml.{Estimator, Model}
   import org.apache.spark.sql.{DataFrame, Dataset, Row}
-  import smoke.Smoke.processData
+  import smoke.Smoke.{processData, smote}
   import smoke.Train.kFold
 
   import scala.collection.mutable.ListBuffer
@@ -16,25 +16,27 @@ package smoke {
     var impurity: Param[String] = estimator.asInstanceOf[RandomForestClassifier].impurity
     val df: DataFrame = Smoke.getDF(1)
     val foldDf: Array[Dataset[Row]] = kFold(df)
-    def train(foldDf: Array[DataFrame], paramMap: ParamMap): Double = {
+    val paramMap: ParamMap = new ParamMap
 
+    def train(foldDf: Array[DataFrame], paramMap: ParamMap, isSample:Boolean = false
+             ): (Double, Model[_]) = {
       var metric: Double = 0
-      val metrics = ListBuffer.empty[Double]
+      val metrics = ListBuffer.empty[(Double, Model[_])]
       for ((k, i) <- foldDf.zipWithIndex) {
         var train_df = foldDf.filter(x => x != k).reduce(_ union _)
-        //train_df = smote(train_df)
+        if (isSample) {
+          train_df = smote(train_df)
+        }
         train_df = processData(train_df)
         val val_df = processData(k)
         val model: Model[_] = estimator.fit(train_df, paramMap).asInstanceOf[Model[_]]
         metric = evaluator.evaluate(model.transform(val_df, paramMap))
-        metrics.append(metric)
+        metrics.append((metric, model))
       }
-
-      metrics.max
+      metrics.maxBy(_._1)
     }
     def modelFitness(x: DenseVector[Double]): Double = {
 
-      val paramMap = new ParamMap
       println(x.map(Math.round).toArray.mkString(" "))
        val str:String = if (math.round(x(1)).toInt != 0) {
         "entropy"
@@ -43,7 +45,7 @@ package smoke {
       }
       paramMap put(n_tree, math.round(x(0)).toInt)
       paramMap put(impurity, str)
-      val v: Double = train(foldDf, paramMap)
+      val v: Double = train(foldDf, paramMap)._1
       println("F = {}", v)
       v
     }
