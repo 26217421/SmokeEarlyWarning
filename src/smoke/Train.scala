@@ -1,7 +1,7 @@
 package smoke {
 
   import breeze.linalg.DenseVector
-  import org.apache.spark.ml.classification.RandomForestClassifier
+  import org.apache.spark.ml.classification.{RandomForestClassificationModel, RandomForestClassifier}
   import org.apache.spark.ml.evaluation.Evaluator
   import org.apache.spark.ml.param.{IntParam, Param, ParamMap}
   import org.apache.spark.ml.{Estimator, Model}
@@ -22,14 +22,16 @@ package smoke {
              ): (Double, Model[_]) = {
       var metric: Double = 0
       val metrics = ListBuffer.empty[(Double, Model[_])]
-      for ((k, i) <- foldDf.zipWithIndex) {
+      for ((k, _) <- foldDf.zipWithIndex) {
         var train_df = foldDf.filter(x => x != k).reduce(_ union _)
         if (isSample) {
           train_df = smote(train_df)
+        } else {
+          train_df = processData(train_df)
         }
-        train_df = processData(train_df)
         val val_df = processData(k)
-        val model: Model[_] = estimator.fit(train_df, paramMap).asInstanceOf[Model[_]]
+        val model: Model[RandomForestClassificationModel] = estimator.fit(train_df, paramMap)
+          .asInstanceOf[Model[RandomForestClassificationModel]]
         metric = evaluator.evaluate(model.transform(val_df, paramMap))
         metrics.append((metric, model))
       }

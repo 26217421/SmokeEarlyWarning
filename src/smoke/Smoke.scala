@@ -22,9 +22,10 @@ object Smoke extends SmokeStruct {
 
   //noinspection DuplicatedCode
   def main(args: Array[String]): Unit = {
-    run_v3(112, isSample = false)
+    run_v1(20)
     run_v3(20, isSample = true)
-    run_v3(112, isSample = true)
+    run_v1(140)
+    run_v3(140, isSample = true)
 
     spark.stop()
   }
@@ -89,10 +90,10 @@ object Smoke extends SmokeStruct {
     val bestModel: RandomForestClassificationModel = selectBestModel(trainData, rf, evaluator, rf, sample = true)
     evaluate(testData, bestModel)
   }
+  val train = new Train(getSampleEstimator, evaluator)
 
   def run_v3(n:Int, isSample:Boolean): Unit = {
     val Array(_, testData) = getDF
-    val train = new Train(getSampleEstimator, evaluator)
     train.paramMap put(train.n_tree, n)
     train.paramMap put(train.impurity, "gini")
     println(n, isSample)
@@ -100,22 +101,20 @@ object Smoke extends SmokeStruct {
     evaluate(testData, model)
   }
 
-  def run_v1(): Unit = {
+  def run_v1(n: Int): Unit = {
     val Array(trainData, testData) = getDF
 
     testData.groupBy("label").count().show()
     val inputCols = trainData.columns.filter(_ != "label")
     val (rf: RandomForestClassifier, pipeline: Pipeline) = getNoSamplePipline(inputCols)
-    val model = pipeline.fit(trainData)
 
-    val predictions = model.transform(testData)
     val evaluator = new MulticlassClassificationEvaluator()
       .setLabelCol("label")
       .setPredictionCol("prediction")
-    val accuracy = evaluator.evaluate(predictions)
-    println("accuracy = {}", accuracy)
 
-    val bestModel: RandomForestClassificationModel = selectBestModel(trainData, pipeline, evaluator, rf, sample = false)
+
+    val bestModel: RandomForestClassificationModel = selectBestModel(trainData, pipeline, evaluator,
+      rf, sample = false, n = n)
     evaluate(testData, bestModel)
   }
 
@@ -145,11 +144,11 @@ object Smoke extends SmokeStruct {
   }
 
   protected def selectBestModel(trainData: Dataset[Row], estimator: Estimator[_], evaluator:
-  MulticlassClassificationEvaluator, rf: RandomForestClassifier, sample: Boolean):
+  MulticlassClassificationEvaluator, rf: RandomForestClassifier, sample: Boolean, n: Int=20):
   RandomForestClassificationModel = {
     val paramGrid = new ParamGridBuilder()
       //.addGrid(rf.maxDepth, Array(10))
-      .addGrid(rf.numTrees, Array(140))
+      .addGrid(rf.numTrees, Array(n))
       .addGrid(rf.impurity, Array("gini"))
       .build()
     val cv = new CrossValidator() //使用交叉验证训练模型

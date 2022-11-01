@@ -13,7 +13,7 @@ object DAOmp {
     .setLabelCol("label")
     .setPredictionCol("prediction")
     .setMetricName("fMeasureByLabel")
-  var train = new Train(Smoke.getSampleEstimator(20), evaluator)
+  var opt = new Train(Smoke.getSampleEstimator, evaluator)
   def main(args: Array[String]): Unit = {
     val result = omp()
 
@@ -27,7 +27,7 @@ object DAOmp {
 
     val lb: DenseVector[Double] = DenseVector[Double](10, 0)
     val ub: DenseVector[Double] = DenseVector[Double](150, 0)
-    val fit = train.modelFitness _
+    val fit = opt.modelFitness _
     val results = (new DA(fit, nAgents, lb, ub, parameters).iterator(iterations)
       take iterations).toList
     val jsonMapper = new ObjectMapper()
