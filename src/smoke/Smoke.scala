@@ -11,7 +11,6 @@ import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.DataTypes
 import org.apache.spark.sql._
-import smoke.DAOmp.evaluator
 
 object Smoke extends SmokeStruct {
   val spark: SparkSession = SparkSession.builder()
@@ -19,13 +18,19 @@ object Smoke extends SmokeStruct {
     .master("local[*]")
     .getOrCreate()
   import spark.implicits._
-
+  val fEvaluator: MulticlassClassificationEvaluator = new MulticlassClassificationEvaluator()
+    .setLabelCol("label")
+    .setPredictionCol("prediction")
+    .setMetricName("fMeasureByLabel")
+  val accEvaluator: MulticlassClassificationEvaluator = new MulticlassClassificationEvaluator()
+    .setLabelCol("label")
+    .setPredictionCol("prediction")
   //noinspection DuplicatedCode
   def main(args: Array[String]): Unit = {
     run_v1(20)
     run_v3(20, isSample = true)
-    run_v1(140)
-    run_v3(140, isSample = true)
+    run_v1(112)
+    run_v3(112, isSample = true)
 
     spark.stop()
   }
@@ -90,7 +95,7 @@ object Smoke extends SmokeStruct {
     val bestModel: RandomForestClassificationModel = selectBestModel(trainData, rf, evaluator, rf, sample = true)
     evaluate(testData, bestModel)
   }
-  val train = new Train(getSampleEstimator, evaluator)
+  val train = new Train(getSampleEstimator, fEvaluator)
 
   def run_v3(n:Int, isSample:Boolean): Unit = {
     val Array(_, testData) = getDF
@@ -155,7 +160,7 @@ object Smoke extends SmokeStruct {
       .setEstimator(estimator)
       .setEvaluator(evaluator)
       .setEstimatorParamMaps(paramGrid)
-      .setNumFolds(3)
+      .setNumFolds(5)
 
     val cvModel = cv.fit(trainData)
     println(cvModel.avgMetrics.mkString("Array(", ", ", ")"))
@@ -176,6 +181,7 @@ object Smoke extends SmokeStruct {
 
   protected def evaluate(df: DataFrame, bestModel: RandomForestClassificationModel): Unit = {
     val res = bestModel.transform(processData(df))
+    val accuracy = accEvaluator.evaluate(res)
     val scoreAndLabels: RDD[(Double, Double)] = res.select(bestModel.getProbabilityCol, bestModel.getLabelCol).rdd
       .map { row => {
         val pro = row.getAs[DenseVector](0)
@@ -192,14 +198,13 @@ object Smoke extends SmokeStruct {
     val auc = metric.areaUnderROC()
     val pr = metric.areaUnderPR()
     val metric2 = new BinaryClassificationMetrics(scoreAndLabels2)
-
     val precision = metric2.precisionByThreshold
     val recall = metric2.recallByThreshold()
     val f1score = metric2.fMeasureByThreshold()
     val pr2 = metric2.areaUnderPR()
     val prc = metric2.pr()
-
-    println("\n auc:  " + auc)
+    println(s"accuracy = $accuracy")
+    println("auc:  " + auc)
     println("pr: " + pr)
     println("presion: " + precision.toJavaRDD().collect())
     println("recall: " + recall.toJavaRDD().collect())
