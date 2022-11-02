@@ -8,6 +8,7 @@ import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.ml.{Estimator, Pipeline, PipelineModel}
 import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
+import org.apache.spark.mllib.util.MLUtils
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.DataTypes
 import org.apache.spark.sql._
@@ -27,9 +28,9 @@ object Smoke extends SmokeStruct {
     .setPredictionCol("prediction")
   //noinspection DuplicatedCode
   def main(args: Array[String]): Unit = {
-    run_v1(20)
-    run_v3(20, isSample = true)
-    run_v1(112)
+    //run_v1(20)
+    //run_v3(20, isSample = true)
+    //run_v1(112)
     run_v3(112, isSample = true)
 
     spark.stop()
@@ -95,7 +96,7 @@ object Smoke extends SmokeStruct {
     val bestModel: RandomForestClassificationModel = selectBestModel(trainData, rf, evaluator, rf, sample = true)
     evaluate(testData, bestModel)
   }
-  val train = new Train(getSampleEstimator, fEvaluator)
+  val train: Train = new Train(getSampleEstimator, fEvaluator)
 
   def run_v3(n:Int, isSample:Boolean): Unit = {
     val Array(_, testData) = getDF
@@ -104,6 +105,7 @@ object Smoke extends SmokeStruct {
     println(n, isSample)
     val model = train.train(train.foldDf, train.paramMap, isSample)._2.asInstanceOf[RandomForestClassificationModel]
     evaluate(testData, model)
+    model.write.overwrite().save(s"model/rf_$n")
   }
 
   def run_v1(n: Int): Unit = {
@@ -179,7 +181,7 @@ object Smoke extends SmokeStruct {
 
   }
 
-  protected def evaluate(df: DataFrame, bestModel: RandomForestClassificationModel): Unit = {
+  def evaluate(df: DataFrame, bestModel: RandomForestClassificationModel): Unit = {
     val res = bestModel.transform(processData(df))
     val accuracy = accEvaluator.evaluate(res)
     val scoreAndLabels: RDD[(Double, Double)] = res.select(bestModel.getProbabilityCol, bestModel.getLabelCol).rdd
@@ -194,7 +196,6 @@ object Smoke extends SmokeStruct {
     val scoreAndLabels2 = res.select(bestModel.getPredictionCol, bestModel.getLabelCol).rdd
       .map { case Row(predLabel: Double, label: Double) => (predLabel, label) }
     val metric = new BinaryClassificationMetrics(scoreAndLabels)
-
     val auc = metric.areaUnderROC()
     val pr = metric.areaUnderPR()
     val metric2 = new BinaryClassificationMetrics(scoreAndLabels2)
