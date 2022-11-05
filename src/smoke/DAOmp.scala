@@ -15,12 +15,11 @@ object DAOmp {
     .setMetricName("fMeasureByLabel")
   var opt = new Train(Smoke.getSampleEstimator, evaluator)
   def main(args: Array[String]): Unit = {
-    val result = omp()
-
+    omp()
   }
   def omp(): DA#Result = {
-    val nAgents = 20
-    val iterations = 5
+    val nAgents = 10
+    val iterations = 10
     def parameters(iteration: Int, maxIteration: Int) =
       VariableParam(iteration, maxIteration)
 

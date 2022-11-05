@@ -30,8 +30,8 @@ object Smoke extends SmokeStruct {
   def main(args: Array[String]): Unit = {
     //run_v1(20)
     //run_v3(20, isSample = true)
-    //run_v1(112)
-    run_v3(112, isSample = true)
+    run_v1(112)
+    //run_v3(26, isSample = true)
 
     spark.stop()
   }
@@ -111,15 +111,21 @@ object Smoke extends SmokeStruct {
   def run_v1(n: Int): Unit = {
     val Array(trainData, testData) = getDF
 
-    testData.groupBy("label").count().show()
     val inputCols = trainData.columns.filter(_ != "label")
     val (rf: RandomForestClassifier, pipeline: Pipeline) = getNoSamplePipline(inputCols)
 
+    var data_10 = spark.read
+      .format("csv")
+      .option("header", "true")
+      .schema(schema)
+      .load("./input/data_10.csv")
+    val model = pipeline.fit(trainData)
+    val start = System.currentTimeMillis()
+    val predictions = model.transform(data_10)
+    println(System.currentTimeMillis() - start)
     val evaluator = new MulticlassClassificationEvaluator()
       .setLabelCol("label")
       .setPredictionCol("prediction")
-
-
     val bestModel: RandomForestClassificationModel = selectBestModel(trainData, pipeline, evaluator,
       rf, sample = false, n = n)
     evaluate(testData, bestModel)
