@@ -18,8 +18,8 @@ object DAOmp {
     omp()
   }
   def omp(): DA#Result = {
-    val nAgents = 10
-    val iterations = 10
+    val nAgents = 20
+    val iterations = 5
     def parameters(iteration: Int, maxIteration: Int) =
       VariableParam(iteration, maxIteration)
 
